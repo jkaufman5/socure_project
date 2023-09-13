@@ -1,0 +1,6 @@
+eid	first_name	last_name	age	country	zip_code	emails
+1	John	Lee	22	US	91003	[jlee@yahoo.com,johnl@aol.com,jl123@gmail.com]
+2	Sam	Smith	50	US	92123	[ssmith@aol.com,sams@example.com]
+3	Sandy	Jones	19	CA	94666	[sj22@gmail.com,sjones@comcast.com]
+4	Lily	Chen	35	CH	310002	[lcc12@hotmail.com,lc12345@qq.com]
+5	Tom	Tan	81	CH	349999	[]
