@@ -1,4 +1,5 @@
 import os
+import logging
 from typing import Dict, List
 
 
@@ -8,10 +9,20 @@ ENTITY_COHORT_FILENAME = "entity_cohorts.tsv"
 
 class EntityCohortMatch:
     def __init__(self, entity_filepath: str, entity_cohort_filepath: str) -> None:
+        self.logger = self.get_logger()
         self.entity_filepath = entity_filepath
         self.entity_cohort_filepath = entity_cohort_filepath
         self.entity_data = self.parse_entities()
         self.entity_cohort_data = self.parse_entity_cohorts()
+
+    @staticmethod
+    def get_logger() -> logging.Logger:
+        logging.basicConfig(
+            format="%(asctime)s %(levelname)-8s %(message)s",
+            level=logging.INFO,
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+        return logging.getLogger("entity_cohort_match")
 
     def parse_entities(self) -> List[Dict]:
         """
@@ -39,6 +50,8 @@ class EntityCohortMatch:
             }
         ]
         """
+        self.logger.info("Reading in %s:" % self.entity_filepath)
+
         if os.path.exists(self.entity_filepath):
             data = list()
             data_format = {
@@ -84,6 +97,9 @@ class EntityCohortMatch:
         else:
             raise IOError("The file path, %s, does not exist" % self.entity_filepath)
 
+        for row in data:
+            self.logger.info(row)
+
         return data
 
     def parse_entity_cohorts(self) -> List[Dict]:
@@ -98,6 +114,8 @@ class EntityCohortMatch:
             {"cohort": "4", "country": "US", "emails": "gmail.com"},
         ]
         """
+        self.logger.info("Reading in %s:" % self.entity_cohort_filepath)
+
         if os.path.exists(self.entity_cohort_filepath):
             data = list()
 
@@ -119,6 +137,9 @@ class EntityCohortMatch:
                 "The file path, %s, does not exist" % self.entity_cohort_filepath
             )
 
+        for row in data:
+            self.logger.info(row)
+
         return data
 
     def find_entity_cohorts(self, eid: int) -> List[str]:
@@ -132,6 +153,9 @@ class EntityCohortMatch:
             this_cohort_matches = True
 
             for key, value in cohort_row.items():
+                # Exclude cohort
+                if key == "cohort":
+                    continue
                 # Exact value matches
                 if key in ("first_name", "last_name", "country", "zip_code"):
                     if entity_row[key] != cohort_row[key]:
@@ -162,10 +186,12 @@ class EntityCohortMatch:
                     else:
                         raise ValueError("%s must be ] or ) only" % max_range)
                 # Email domain matches
-                elif key == "email":
-                    entity_email_domain = entity_row[key].split("@")[1]
+                elif key == "emails":
+                    entity_email_domains = [
+                        email.split("@")[1] for email in entity_row[key]
+                    ]
 
-                    if entity_email_domain != cohort_row[key]:
+                    if cohort_row[key] not in entity_email_domains:
                         this_cohort_matches = False
                 else:
                     raise ValueError("The key, %s, is not expected" % key)
@@ -194,11 +220,15 @@ class EntityCohortMatch:
         for i in range(len(self.entity_cohort_data)):
             if cohort_row["cohort"] == self.entity_cohort_data[i]["cohort"]:
                 self.entity_cohort_data[i] = cohort_row
+                self.logger.info(
+                    "Cohort %s found and replaced as %s" % (cohort, cohort_row)
+                )
                 cohort_found_and_replaced = True
 
         # If not replaced, add it
         if not cohort_found_and_replaced:
             self.entity_cohort_data.append(cohort_row)
+            self.logger.info("Cohort %s added as %s" % (cohort, cohort_row))
 
         # Return True if cohort added or updated successfully
         return True
@@ -210,18 +240,12 @@ def main():
         entity_filepath=ENTITY_FILENAME, entity_cohort_filepath=ENTITY_COHORT_FILENAME
     )
 
-    # Print data that was each read from file, transformed, and stored as a list of dictionaries
-    for row in entity.entity_data:
-        print(row)
-    for row in entity.entity_cohort_data:
-        print(row)
-
     # Add new Cohort 5
     entity.add_entity_cohort(cohort="cohort:5\tlast_name:Jackson\tage:(18,26)")
 
     # Test cases
     assert entity.find_entity_cohorts(eid=1) == ["3", "4"]
-    assert entity.find_entity_cohorts(eid=2) == ["4"]
+    assert entity.find_entity_cohorts(eid=2) == []
     assert entity.find_entity_cohorts(eid=3) == []
     assert entity.find_entity_cohorts(eid=4) == ["2"]
     assert entity.find_entity_cohorts(eid=5) == []
