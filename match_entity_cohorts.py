@@ -6,15 +6,14 @@ ENTITY_FILENAME = "entities.tsv"
 ENTITY_COHORT_FILENAME = "entity_cohorts.tsv"
 
 
-class EntityInitializer:
+class EntityCohortMatch:
     def __init__(self, entity_filepath: str, entity_cohort_filepath: str) -> None:
-        self.entity_data = self.parse_entities(filepath=entity_filepath)
-        self.entity_cohort_data = self.parse_entity_cohorts(
-            filepath=entity_cohort_filepath
-        )
+        self.entity_filepath = entity_filepath
+        self.entity_cohort_filepath = entity_cohort_filepath
+        self.entity_data = self.parse_entities()
+        self.entity_cohort_data = self.parse_entity_cohorts()
 
-    @staticmethod
-    def parse_entities(filepath: str) -> List[Dict]:
+    def parse_entities(self) -> List[Dict]:
         """
         Read in entities file
 
@@ -40,7 +39,7 @@ class EntityInitializer:
             }
         ]
         """
-        if os.path.exists(filepath):
+        if os.path.exists(self.entity_filepath):
             data = list()
             data_format = {
                 "eid": 0,
@@ -52,7 +51,7 @@ class EntityInitializer:
                 "emails": 6,
             }
 
-            with open(filepath, "r") as file:
+            with open(self.entity_filepath, "r") as file:
                 # For each line of the file
                 for line in file:
                     # Exclude column header
@@ -83,12 +82,11 @@ class EntityInitializer:
 
                         data.append(data_line)
         else:
-            raise IOError("The file path, %s, does not exist" % filepath)
+            raise IOError("The file path, %s, does not exist" % self.entity_filepath)
 
         return data
 
-    @staticmethod
-    def parse_entity_cohorts(filepath: str) -> List[Dict]:
+    def parse_entity_cohorts(self) -> List[Dict]:
         """
         Read in entity cohorts TSV file
 
@@ -100,10 +98,10 @@ class EntityInitializer:
             {"cohort": "4", "country": "US", "emails": "gmail.com"},
         ]
         """
-        if os.path.exists(filepath):
+        if os.path.exists(self.entity_cohort_filepath):
             data = list()
 
-            with open(filepath, "r") as file:
+            with open(self.entity_cohort_filepath, "r") as file:
                 # For each line of the file
                 for line in file:
                     data_line = dict()
@@ -117,7 +115,9 @@ class EntityInitializer:
 
                     data.append(data_line)
         else:
-            raise IOError("The file path, %s, does not exist" % filepath)
+            raise IOError(
+                "The file path, %s, does not exist" % self.entity_cohort_filepath
+            )
 
         return data
 
@@ -206,21 +206,30 @@ class EntityInitializer:
 
 def main():
     # Instantiate entity, which reads in two files
-    entity = EntityInitializer(
+    entity = EntityCohortMatch(
         entity_filepath=ENTITY_FILENAME, entity_cohort_filepath=ENTITY_COHORT_FILENAME
     )
 
-    # Print data that was read and stored as lists of dictionaries
+    # Print data that was each read from file, transformed, and stored as a list of dictionaries
     for row in entity.entity_data:
         print(row)
     for row in entity.entity_cohort_data:
         print(row)
 
-    # Test cases
-    entity.find_entity_cohorts(eid=1)
-    entity.find_entity_cohorts(eid=4)
+    # Add new Cohort 5
     entity.add_entity_cohort(cohort="cohort:5\tlast_name:Jackson\tage:(18,26)")
-    entity.add_entity_cohort(cohort="cohort:5\tI am amazing:true\tthis is fun:true")
+
+    # Test cases
+    assert entity.find_entity_cohorts(eid=1) == ["3", "4"]
+    assert entity.find_entity_cohorts(eid=2) == ["4"]
+    assert entity.find_entity_cohorts(eid=3) == []
+    assert entity.find_entity_cohorts(eid=4) == ["2"]
+    assert entity.find_entity_cohorts(eid=5) == []
+    assert entity.entity_cohort_data[4] == {
+        "cohort": "5",
+        "last_name": "Jackson",
+        "age": "(18,26)",
+    }
 
 
 if __name__ == "__main__":
